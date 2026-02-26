@@ -12,10 +12,10 @@ Stores information about the geometry and representation theory of the affine He
 
 Fields:
 - `weight::Vector{Int}`: Stores the weight for which the remaining fields are computed
-- `kostparts::Vector{TypeAKostantPartition}`: Stores all Kostant partitions of the given weight. This is an indexing set for the irreducibles.
-- `avectors:: Dict{TypeAKostantPartition,Vector{Int}}`: Stores for each Kostant partition the corresponding a-vector.
-- `coordsubspaces:: Dict{TypeAKostantPartition,CoordSubspace}`: Stores for each Kostant partition the corresponding corrdinate subpace R_{i, a}.
-- `poincarepolys:: Dict{TypeAKostantPartition, AbstractAlgebra.Generic.RationalFunctionFieldElem}`: Stores the quantum factorial of the a-vector.
+- `kostParts::Vector{TypeAKostantPartition}`: Stores all Kostant partitions of the given weight. This is an indexing set for the irreducibles.
+- `aVectors:: Dict{TypeAKostantPartition,Vector{Int}}`: Stores for each Kostant partition the corresponding a-vector.
+- `coordSubspaces:: Dict{TypeAKostantPartition,CoordSubspace}`: Stores for each Kostant partition the corresponding corrdinate subpace R_{i, a}.
+- `poincarePolys:: Dict{TypeAKostantPartition, AbstractAlgebra.Generic.RationalFunctionFieldElem}`: Stores the quantum factorial of the a-vector.
 - `psi::AbstractAlgebra.Generic.MatSpaceElem`: Stores the psi-matrix of the given weight. This encodes the bilinear form on the monomial basis.
 - `q::AbstractAlgebra.Generic.MatSpaceElem`: Stores the q-matrix of the given weight. This encodes the change of basis between the canonical and the monomial basis.
 - `p::AbstractAlgebra.Generic.MatSpaceElem`: Stores the p-matrix of the given weight. This encodes the change of basis between the standard and the canonical basis or equivalently the stalks of perverse sheaves.
@@ -25,10 +25,10 @@ Fields:
 """
 struct AHeckGL
     weight::Vector{Int}
-    kostparts::Vector{TypeAKostantPartition}
-    avectors:: Dict{TypeAKostantPartition,Vector{Int}}
-    coordsubspaces:: Dict{TypeAKostantPartition,CoordSubspace}
-    poincarepolys:: Dict{TypeAKostantPartition, AbstractAlgebra.Generic.RationalFunctionFieldElem}
+    kostParts::Vector{TypeAKostantPartition}
+    aVectors:: Dict{TypeAKostantPartition,Vector{Int}}
+    coordSubspaces:: Dict{TypeAKostantPartition,CoordSubspace}
+    poincarePolys:: Dict{TypeAKostantPartition, AbstractAlgebra.Generic.RationalFunctionFieldElem}
     psi::AbstractAlgebra.Generic.MatSpaceElem
     q::AbstractAlgebra.Generic.MatSpaceElem
     p::AbstractAlgebra.Generic.MatSpaceElem
@@ -38,39 +38,41 @@ struct AHeckGL
 
     function AHeckGL(w::Vector{Int})
         weight = w
-        kostparts = kostantPartitions(w)
-        avectors = Dict(c => aVector(c) for c in kostparts)
-        coordsubspaces = Dict(c => coordSubspace(weight,avectors[c]) for c in kostparts)
-        poincarepolys = Dict(c => poincarePoly(avectors[c]) for c in kostparts)
-        psi = psiMatrix(weight, kostparts, avectors, coordsubspaces, poincarepolys)
+        kostParts = kostantPartitions(w)
+        aVectors = Dict(c => aVector(c) for c in kostParts)
+        coordSubspaces = Dict(c => CoordSubspace(weight,aVectors[c]) for c in kostParts)
+        poincarePolys = Dict(c => poincarePoly(aVectors[c]) for c in kostParts)
+        psi = psiMatrix(weight, kostParts, coordSubspaces, poincarePolys)
         l = ldltDecomposition(psi)[1]
         q,p = qpDecomposition(l)
-        h=hVector(weight, kostparts, coordsubspaces, poincarepolys)
+        h=hVector(weight, kostParts, coordSubspaces, poincarePolys)
         f = transpose(q) * psi^(-1) * h
-        new(weight, kostparts, avectors, coordsubspaces, poincarepolys, psi, q, p, h, f, evalAtOne(f))
+        new(weight, kostParts, aVectors, coordSubspaces, poincarePolys, psi, q, p, h, f, evalAtOne(f))
     end
 end
 
 """
-    psiMatrix(weight::Vector{Int})
+    psiMatrix(weight::Vector{Int},
+                    kostParts::Vector{TypeAKostantPartition},
+                    coordSubspaces:: Dict{TypeAKostantPartition,CoordSubspace},
+                    poincarePolys)
 
 Computes the psi matrix assoicated to the given `weight`.
 This differs from the definition of the psi-matrix in [1] by a factor of (1-x^2)^n.
 """
 function psiMatrix(weight::Vector{Int},
-                    kostparts::Vector{TypeAKostantPartition},
-                    avectors:: Dict{TypeAKostantPartition,Vector{Int}},
-                    coordsubspaces:: Dict{TypeAKostantPartition,CoordSubspace},
-                    poincarepolys)::AbstractAlgebra.Generic.MatSpaceElem
+                    kostParts::Vector{TypeAKostantPartition},
+                    coordSubspaces:: Dict{TypeAKostantPartition,CoordSubspace},
+                    poincarePolys)::AbstractAlgebra.Generic.MatSpaceElem
     R, x = rational_function_field(QQ, "x")
     coxlens = coxeterLengths(weight)
-    allconjugates = Dict(c => allConjugates(coordsubspaces[c], coxlens) for c in kostparts)
-    psi = identity_matrix(R,length(kostparts))
-    for i in eachindex(kostparts)
-        for j in i:length(kostparts) 
-            c1 = kostparts[i]
-            c2 = kostparts[j]
-            entry = innerProduct(allconjugates[c1], poincarepolys[c1], coordsubspaces[c2], poincarepolys[c2])
+    allconjugates = Dict(c => allConjugates(coordSubspaces[c], coxlens) for c in kostParts)
+    psi = identity_matrix(R,length(kostParts))
+    for i in eachindex(kostParts)
+        for j in i:length(kostParts) 
+            c1 = kostParts[i]
+            c2 = kostParts[j]
+            entry = innerProduct(allconjugates[c1], poincarePolys[c1], coordSubspaces[c2], poincarePolys[c2])
             psi[i,j] = entry
             psi[j,i] = entry
         end
@@ -149,7 +151,7 @@ function qpDecomposition(L::AbstractAlgebra.Generic.MatSpaceElem)::Tuple{Abstrac
 end
 
 """
-innerProduct(V1conjugates:: Vector{Tuple{CoordSubspace, Int}}, a1::Vector{Int}, p1::AbstractAlgebra.Generic.RationalFunctionFieldElem, V2::CoordSubspace, a2::Vector{Int}, p2::AbstractAlgebra.Generic.RationalFunctionFieldElem)
+innerProduct(V1conjugates:: Vector{Tuple{CoordSubspace, Int}}, a1::Vector{Int}, p1::AbstractAlgebra.Generic.RationalFunctionFieldElem, V2::coordSubspace, a2::Vector{Int}, p2::AbstractAlgebra.Generic.RationalFunctionFieldElem)
 
 Computes the inner product between `V1` and `V2`.
 The function requires all conjugates of `V1` for this as well as the Poincare polynomials associated to the a-vectors of `V_1` and `V_2`.
@@ -196,24 +198,24 @@ end
 
 """
     hVector(weight:: Vector{Int},
-            kostparts::Vector{TypeAKostantPartition},
-            avectors:: Dict{TypeAKostantPartition,Vector{Int}},
-            coordsubspaces:: Dict{TypeAKostantPartition,CoordSubspace},
-            poincarepolys:: Dict{TypeAKostantPartition, AbstractAlgebra.Generic.RationalFunctionFieldElem})
+            kostParts::Vector{TypeAKostantPartition},
+            aVectors:: Dict{TypeAKostantPartition,Vector{Int}},
+            coordSubspaces:: Dict{TypeAKostantPartition,CoordSubspace},
+            poincarePolys:: Dict{TypeAKostantPartition, AbstractAlgebra.Generic.RationalFunctionFieldElem})
 
 Computes the h-vector of a given weight.
 This differs from the definition of the h-vector in [1] by a factor of (1-x^2)^n.
 """
 function hVector(weight:: Vector{Int},
-                kostparts::Vector{TypeAKostantPartition},
-                coordsubspaces:: Dict{TypeAKostantPartition,CoordSubspace},
-                poincarepolys)::AbstractAlgebra.Generic.MatSpaceElem
+                kostParts::Vector{TypeAKostantPartition},
+                coordSubspaces:: Dict{TypeAKostantPartition,CoordSubspace},
+                poincarePolys)::AbstractAlgebra.Generic.MatSpaceElem
     R, x = rational_function_field(QQ, "x")
     nsubspaces = allnSubspaces(weight)
-    H = zero_matrix(R, length(kostparts), 1)
-    for i in eachindex(kostparts)
-        c = kostparts[i]
-        entry = hProduct(nsubspaces, coordsubspaces[c], poincarepolys[c])
+    H = zero_matrix(R, length(kostParts), 1)
+    for i in eachindex(kostParts)
+        c = kostParts[i]
+        entry = hProduct(nsubspaces, coordSubspaces[c], poincarePolys[c])
         H[i,1] = entry
     end
     return H
