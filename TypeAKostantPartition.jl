@@ -279,11 +279,11 @@ function allConjugates(V::CoordSubspace, coxlens::Dict{Permutation, Int})::Vecto
 end
 
 """
-    coordSubspace(rank::Int, a::Vector{Int})
+    CoordSubspace(weight::Vector{Int}, a::Vector{Int})
 
 Computes the coordinate subspace associated to `a`.
 """
-function coordSubspace(weight::Vector{Int}, a::Vector{Int})::CoordSubspace
+function CoordSubspace(weight::Vector{Int}, a::Vector{Int})
     n = length(weight)
     coordinates = [Set{Tuple{Int,Int}}() for i in 1:n-1]
     flagdim = zeros(Int, n)
