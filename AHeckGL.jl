@@ -58,13 +58,13 @@ end
                     poincarePolys)
 
 Computes the psi matrix assoicated to the given `weight`.
-This differs from the definition of the psi-matrix in [1] by a factor of (1-x^2)^n.
+This differs from the definition of the psi-matrix in [1] by a factor of (1-v^2)^n.
 """
 function psiMatrix(weight::Vector{Int},
                     kostParts::Vector{TypeAKostantPartition},
                     coordSubspaces:: Dict{TypeAKostantPartition,CoordSubspace},
                     poincarePolys)::AbstractAlgebra.Generic.MatSpaceElem
-    R, x = rational_function_field(QQ, "x")
+    R, v = rational_function_field(QQ, "v")
     coxlens = coxeterLengths(weight)
     allconjugates = Dict(c => allConjugates(coordSubspaces[c], coxlens) for c in kostParts)
     psi = identity_matrix(R,length(kostParts))
@@ -87,7 +87,7 @@ end
 Computes the LDL^T-decomposition of the matrix `mat` where L is lower unitriangular und D is diagonal.
 """
 function ldltDecomposition(mat::AbstractAlgebra.Generic.MatSpaceElem)::Tuple{AbstractAlgebra.Generic.MatSpaceElem,AbstractAlgebra.Generic.MatSpaceElem}
-    R, x = rational_function_field(QQ, "x")
+    R, v = rational_function_field(QQ, "v")
     n = nrows(mat)
     D = copy(mat)
     L = identity_matrix(R,n)
@@ -118,14 +118,14 @@ end
     symmetrize(f::AbstractAlgebra.Generic.Poly)
 
 Symmetrizes the polynomial `f` to a Laurent polynomial that is
-invariant under x -> x^(-1) and has the same non-negative part as `f`.
+invariant under v -> v^(-1) and has the same non-negative part as `f`.
 """
 function symmetrize(f::AbstractAlgebra.Generic.Poly)::AbstractAlgebra.Generic.RationalFunctionFieldElem
-    R, x = rational_function_field(QQ, "x")
+    R, v = rational_function_field(QQ, "v")
     if f == 0
-        return f/x^0
+        return f/v^0
     else
-        return f/x^0 + reverse(divrem(f, polynomial_ring(QQ,"x")[2])[1])/x^degree(f)
+        return f/v^0 + reverse(divrem(f, polynomial_ring(QQ,"v")[2])[1])/v^degree(f)
     end
 end
 
@@ -133,10 +133,10 @@ end
     qpDecomposition(L::AbstractAlgebra.Generic.MatSpaceElem)
 
 Computes the QP-decomposition of a lower triangular matrix `L` where P and Q are lower unitriangular,
-Q has entries in Z[x+x^{-1}] and P has entries in x^{-1} Z[x^{-1}] below the diagonal.
+Q has entries in Z[v+v^{-1}] and P has entries in v^{-1} Z[v^{-1}] below the diagonal.
 """
 function qpDecomposition(L::AbstractAlgebra.Generic.MatSpaceElem)::Tuple{AbstractAlgebra.Generic.MatSpaceElem,AbstractAlgebra.Generic.MatSpaceElem}
-    R, x = rational_function_field(QQ, "x")
+    R, v = rational_function_field(QQ, "v")
     n = nrows(L)
     P = copy(L)
     Q = identity_matrix(R,n)
@@ -160,16 +160,16 @@ function innerProduct(V1conjugates:: Vector{Tuple{CoordSubspace, Int}},
                     p1::AbstractAlgebra.Generic.RationalFunctionFieldElem,
                     V2::CoordSubspace,
                     p2::AbstractAlgebra.Generic.RationalFunctionFieldElem)::AbstractAlgebra.Generic.RationalFunctionFieldElem
-    R, x = rational_function_field(QQ, "x")
-    sigma = 0*x
+    R, v = rational_function_field(QQ, "v")
+    sigma = 0*v
     exponents = DefaultDict{Int, Int}(0)
     for con in V1conjugates
         exponents[2*(dimOfIntersection(con[1], V2) + con[2])] += 1
     end
     for (e, k) in exponents
-        sigma += k*x^(e)
+        sigma += k*v^(e)
     end
-    scalar = x^(-V1conjugates[1][1].dim - V2.dim)/(p1*p2)
+    scalar = v^(-V1conjugates[1][1].dim - V2.dim)/(p1*p2)
     return scalar*sigma
 end
 
@@ -178,21 +178,21 @@ end
     hProduct(nspaces:: Vector{Tuple{CoordSubspace, Int}}, V::CoordSubspace, a::Vector{Int})
 
 Computes the entry of the h-vector associated to `V`.
-This differs from the definition of the h-vector in [1] by a factor of (1-x^2)^n.
+This differs from the definition of the h-vector in [1] by a factor of (1-v^2)^n.
 """
 function hProduct(nspaces:: Vector{Tuple{CoordSubspace, Int}},
                 V::CoordSubspace,
                 p::AbstractAlgebra.Generic.RationalFunctionFieldElem)::AbstractAlgebra.Generic.RationalFunctionFieldElem
-    R, x = rational_function_field(QQ, "x")
-    sigma = 0*x
+    R, v = rational_function_field(QQ, "v")
+    sigma = 0*v
     exponents = DefaultDict{Int, Int}(0)
     for space in nspaces
         exponents[2*(dimOfIntersection(space[1], V) + space[2])] += 1
     end
     for (e, k) in exponents
-        sigma += k*x^(e)
+        sigma += k*v^(e)
     end
-    scalar = x^(- V.dim)/p
+    scalar = v^(- V.dim)/p
     return scalar*sigma
 end
 
@@ -204,13 +204,13 @@ end
             poincarePolys:: Dict{TypeAKostantPartition, AbstractAlgebra.Generic.RationalFunctionFieldElem})
 
 Computes the h-vector of a given weight.
-This differs from the definition of the h-vector in [1] by a factor of (1-x^2)^n.
+This differs from the definition of the h-vector in [1] by a factor of (1-v^2)^n.
 """
 function hVector(weight:: Vector{Int},
                 kostParts::Vector{TypeAKostantPartition},
                 coordSubspaces:: Dict{TypeAKostantPartition,CoordSubspace},
                 poincarePolys)::AbstractAlgebra.Generic.MatSpaceElem
-    R, x = rational_function_field(QQ, "x")
+    R, v = rational_function_field(QQ, "v")
     nsubspaces = allnSubspaces(weight)
     H = zero_matrix(R, length(kostParts), 1)
     for i in eachindex(kostParts)
@@ -227,14 +227,14 @@ end
 Computes the normalized Poincare polynomial of `n`
 """
 function poincarePoly(n::Int)::AbstractAlgebra.Generic.RationalFunctionFieldElem
-    R, x = rational_function_field(QQ, "x")
-    temp = 1*x^0
-    res = 1*x^0
+    R, v = rational_function_field(QQ, "v")
+    temp = 1*v^0
+    res = 1*v^0
     for i in 1:n
         res = res*temp
-        temp = temp + x^(2*i)
+        temp = temp + v^(2*i)
     end
-    return x^(-n*(n-1)÷2)*res
+    return v^(-n*(n-1)÷2)*res
 end
 
 """
@@ -243,8 +243,8 @@ end
 Computes the product of the Poincare polynomials of the entries of `a`.
 """
 function poincarePoly(a::Vector{Int})::AbstractAlgebra.Generic.RationalFunctionFieldElem
-    R, x = rational_function_field(QQ, "x")
-    res = 1*x^0
+    R, v = rational_function_field(QQ, "v")
+    res = 1*v^0
     for i in 1:length(a)
         res = res*poincarePoly(a[i])
     end
